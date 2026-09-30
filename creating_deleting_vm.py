@@ -11,36 +11,27 @@ VM_NAME = "pipeline-vm"
 
 
 def get_azure():
-    """Connect to Azure as the Airflow VM's identity (no passwords needed)."""
-    subscription_id = Variable.get("AZURE_SUBSCRIPTION_ID")
-    return ComputeManagementClient(DefaultAzureCredential(), subscription_id), subscription_id
+    """Connect to Azure using the Airflow VM's identity (no passwords)."""
+    sub = Variable.get("AZURE_SUBSCRIPTION_ID")
+    return ComputeManagementClient(DefaultAzureCredential(), sub), sub
 
 
 def create_vm():
     azure, sub = get_azure()
-    subnet = f"/subscriptions/{sub}/resourceGroups/{RESOURCE_GROUP}/providers/Microsoft.Network/virtualNetworks/pipeline-vnet/subnets/default"
+    nic = f"/subscriptions/{sub}/resourceGroups/{RESOURCE_GROUP}/providers/Microsoft.Network/networkInterfaces/pipeline-vm-nic"
 
     vm = {
         "location": "canadacentral",
-        "hardware_profile": {"vm_size": "Standard_B2pts_v2"},  # small ARM machine
-        "storage_profile": {
-            "image_reference": {"publisher": "Canonical", "offer": "ubuntu-24_04-lts",
-                                "sku": "server-arm64", "version": "latest"},
-            "os_disk": {"create_option": "FromImage", "delete_option": "Delete"},
-        },
-        "os_profile": {"computer_name": VM_NAME, "admin_username": "azureuser",
-                       "admin_password": secrets.token_urlsafe(24) + "Aa1!"},
-        "network_profile": {
-            "network_api_version": "2020-11-01",
-            "network_interface_configurations": [{
-                "name": f"{VM_NAME}-nic", "primary": True, "delete_option": "Delete",
-                "ip_configurations": [{
-                    "name": "ipconfig1", "subnet": {"id": subnet},
-                    "public_ip_address_configuration": {
-                        "name": f"{VM_NAME}-ip", "sku": {"name": "Standard"},
-                        "public_ip_allocation_method": "Static", "delete_option": "Delete"},
-                }],
-            }],
+        "properties": {
+            "hardwareProfile": {"vmSize": "Standard_B2pts_v2"},
+            "storageProfile": {
+                "imageReference": {"publisher": "Canonical", "offer": "ubuntu-24_04-lts",
+                                   "sku": "server-arm64", "version": "latest"},
+                "osDisk": {"createOption": "FromImage", "deleteOption": "Delete"},
+            },
+            "osProfile": {"computerName": VM_NAME, "adminUsername": "azureuser",
+                          "adminPassword": secrets.token_urlsafe(24) + "Aa1!"},
+            "networkProfile": {"networkInterfaces": [{"id": nic}]},
         },
     }
     print("Creating VM... (1 to 3 minutes)")
@@ -51,7 +42,7 @@ def create_vm():
 def run_hello():
     azure, _ = get_azure()
     result = azure.virtual_machines.begin_run_command(RESOURCE_GROUP, VM_NAME, {
-        "command_id": "RunShellScript",
+        "commandId": "RunShellScript",
         "script": ["echo Hello from the new VM!", "uname -m", "nproc"],
     }).result()
     print(result.value[0].message)
@@ -59,7 +50,7 @@ def run_hello():
 
 def delete_vm():
     azure, _ = get_azure()
-    print("Deleting VM (disk, network card and IP are deleted with it)...")
+    print("Deleting VM and its disk...")
     azure.virtual_machines.begin_delete(RESOURCE_GROUP, VM_NAME).result()
     print("VM deleted")
 
