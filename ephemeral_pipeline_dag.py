@@ -16,7 +16,7 @@ from azure.mgmt.compute import ComputeManagementClient
 
 # ---- settings --------------------------------------------------------------
 RESOURCE_GROUP = "rg-pipeline"
-LOCATION = "canadacentral"
+LOCATION = "westus"
 VM_NAME = "pipeline-vm"
 VM_SIZE = "Standard_B2pts_v2"          # cheap ARM machine; change this and the image follows
 NIC_NAME = "pipeline-vm-nic"           # created once by hand
