@@ -22,16 +22,4 @@ with DAG(
         bash_command="echo user=$(whoami); echo host=$(hostname)",
     )
 
-    # 3. Write a file
-    write_file = BashOperator(
-        task_id="write_file",
-        bash_command='echo "written at $(date)" > /tmp/demo.txt',
-    )
-
-    # 4. Read the file back
-    read_file = BashOperator(
-        task_id="read_file",
-        bash_command="cat /tmp/demo.txt",
-    )
-
-    hello >> whoami >> write_file >> read_file
+    hello >> whoami
