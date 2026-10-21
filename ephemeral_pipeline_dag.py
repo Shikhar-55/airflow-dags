@@ -5,7 +5,7 @@ from airflow.sdk import DAG, Variable
 from airflow.providers.standard.operators.python import PythonOperator
 from azure.identity import DefaultAzureCredential
 from azure.mgmt.compute import ComputeManagementClient
-from azure.mgmt.resource import ResourceManagementClient
+from azure.mgmt.resource.resources import ResourceManagementClient
 
 RESOURCE_GROUP = "rg-pipeline"
 LOCATION = "westus"
