@@ -38,31 +38,38 @@ def create_network():
     """Same as the three az network commands. Creates on the first run, finds on later runs."""
     sub = Variable.get("AZURE_SUBSCRIPTION_ID")
     network = NetworkManagementClient(DefaultAzureCredential(), sub)
+    base = f"/subscriptions/{sub}/resourceGroups/{RESOURCE_GROUP}/providers/Microsoft.Network"
 
     # az network vnet create -g rg-pipeline -n pipeline-vnet --subnet-name default
-    vnet = network.virtual_networks.begin_create_or_update(RESOURCE_GROUP, "pipeline-vnet", {
+    network.virtual_networks.begin_create_or_update(RESOURCE_GROUP, "pipeline-vnet", {
         "location": LOCATION,
-        "address_space": {"address_prefixes": ["10.0.0.0/16"]},
-        "subnets": [{"name": "default", "address_prefix": "10.0.0.0/24"}],
+        "properties": {
+            "addressSpace": {"addressPrefixes": ["10.0.0.0/16"]},
+            "subnets": [{"name": "default", "properties": {"addressPrefix": "10.0.0.0/24"}}],
+        },
     }).result()
     print("VNet ready")
 
     # az network public-ip create -g rg-pipeline -n pipeline-vm-pip --sku Standard
-    pip = network.public_ip_addresses.begin_create_or_update(RESOURCE_GROUP, "pipeline-vm-pip", {
+    network.public_ip_addresses.begin_create_or_update(RESOURCE_GROUP, "pipeline-vm-pip", {
         "location": LOCATION,
         "sku": {"name": "Standard"},
-        "public_ip_allocation_method": "Static",
+        "properties": {"publicIPAllocationMethod": "Static"},
     }).result()
     print("Public IP ready")
 
     # az network nic create -g rg-pipeline -n pipeline-vm-nic --vnet-name pipeline-vnet --subnet default --public-ip-address pipeline-vm-pip
     network.network_interfaces.begin_create_or_update(RESOURCE_GROUP, "pipeline-vm-nic", {
         "location": LOCATION,
-        "ip_configurations": [{
-            "name": "ipconfig1",
-            "subnet": {"id": vnet.subnets[0].id},
-            "public_ip_address": {"id": pip.id},
-        }],
+        "properties": {
+            "ipConfigurations": [{
+                "name": "ipconfig1",
+                "properties": {
+                    "subnet": {"id": f"{base}/virtualNetworks/pipeline-vnet/subnets/default"},
+                    "publicIPAddress": {"id": f"{base}/publicIPAddresses/pipeline-vm-pip"},
+                },
+            }],
+        },
     }).result()
     print("NIC ready")
 
