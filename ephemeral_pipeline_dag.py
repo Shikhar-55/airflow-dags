@@ -5,6 +5,7 @@ from airflow.sdk import DAG, Variable
 from airflow.providers.standard.operators.python import PythonOperator
 from azure.identity import DefaultAzureCredential
 from azure.mgmt.compute import ComputeManagementClient
+from azure.mgmt.network import NetworkManagementClient
 from azure.mgmt.resource.resources import ResourceManagementClient
 
 RESOURCE_GROUP = "rg-pipeline"
@@ -31,6 +32,39 @@ def create_resource_group():
     else:
         resources.resource_groups.create_or_update(RESOURCE_GROUP, {"location": LOCATION})
         print(f"Created resource group {RESOURCE_GROUP} in {LOCATION}")
+
+
+def create_network():
+    """Same as the three az network commands. Creates on the first run, finds on later runs."""
+    sub = Variable.get("AZURE_SUBSCRIPTION_ID")
+    network = NetworkManagementClient(DefaultAzureCredential(), sub)
+
+    # az network vnet create -g rg-pipeline -n pipeline-vnet --subnet-name default
+    vnet = network.virtual_networks.begin_create_or_update(RESOURCE_GROUP, "pipeline-vnet", {
+        "location": LOCATION,
+        "address_space": {"address_prefixes": ["10.0.0.0/16"]},
+        "subnets": [{"name": "default", "address_prefix": "10.0.0.0/24"}],
+    }).result()
+    print("VNet ready")
+
+    # az network public-ip create -g rg-pipeline -n pipeline-vm-pip --sku Standard
+    pip = network.public_ip_addresses.begin_create_or_update(RESOURCE_GROUP, "pipeline-vm-pip", {
+        "location": LOCATION,
+        "sku": {"name": "Standard"},
+        "public_ip_allocation_method": "Static",
+    }).result()
+    print("Public IP ready")
+
+    # az network nic create -g rg-pipeline -n pipeline-vm-nic --vnet-name pipeline-vnet --subnet default --public-ip-address pipeline-vm-pip
+    network.network_interfaces.begin_create_or_update(RESOURCE_GROUP, "pipeline-vm-nic", {
+        "location": LOCATION,
+        "ip_configurations": [{
+            "name": "ipconfig1",
+            "subnet": {"id": vnet.subnets[0].id},
+            "public_ip_address": {"id": pip.id},
+        }],
+    }).result()
+    print("NIC ready")
 
 
 def create_vm():
@@ -101,9 +135,10 @@ with DAG(
     max_active_runs=1,
 ):
     rg = PythonOperator(task_id="create_resource_group", python_callable=create_resource_group)
+    network = PythonOperator(task_id="create_network", python_callable=create_network)
     create = PythonOperator(task_id="create_vm", python_callable=create_vm)
     run = PythonOperator(task_id="run_pipeline", python_callable=run_pipeline)
     delete = PythonOperator(task_id="delete_vm", python_callable=delete_vm,
                             trigger_rule="all_done")  # always clean up
 
-    rg >> create >> run >> delete
+    rg >> network >> create >> run >> delete
