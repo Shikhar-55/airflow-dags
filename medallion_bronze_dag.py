@@ -13,6 +13,7 @@ from datetime import datetime, timedelta
 
 from airflow.sdk import DAG, Variable
 from airflow.providers.standard.operators.python import PythonOperator
+from airflow.providers.smtp.notifications.smtp import SmtpNotifier
 from airflow.providers.standard.operators.trigger_dagrun import TriggerDagRunOperator
 
 # The DAGs are synced into a subfolder of the dags folder, so add this file's own
@@ -23,9 +24,8 @@ import medallion_utils as vm
 default_args = {
     "retries": 2,                                   # try each task up to 3 times in total
     "retry_delay": timedelta(minutes=5),
-    "email": [Variable.get("ALERT_EMAIL")],         # where failure emails go
-    "email_on_failure": True,                       # send one when a task has used up its retries
-    "email_on_retry": False,
+    # Email when a task has used up all its retries (uses the smtp_default connection)
+    "on_failure_callback": SmtpNotifier(to=Variable.get("ALERT_EMAIL")),
 }
 
 with DAG(

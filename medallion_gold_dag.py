@@ -12,6 +12,7 @@ from datetime import datetime, timedelta
 
 from airflow.sdk import DAG, Variable
 from airflow.providers.standard.operators.python import PythonOperator
+from airflow.providers.smtp.notifications.smtp import SmtpNotifier
 
 # The DAGs are synced into a subfolder of the dags folder, so add this file's own
 # folder to the import path before importing the shared helper next to it
@@ -21,9 +22,8 @@ import medallion_utils as vm
 default_args = {
     "retries": 2,
     "retry_delay": timedelta(minutes=5),
-    "email": [Variable.get("ALERT_EMAIL")],
-    "email_on_failure": True,
-    "email_on_retry": False,
+    # Email when a task has used up all its retries (uses the smtp_default connection)
+    "on_failure_callback": SmtpNotifier(to=Variable.get("ALERT_EMAIL")),
 }
 
 with DAG(

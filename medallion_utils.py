@@ -7,6 +7,7 @@ The only new piece is run_layer(), which clones the pipeline repo on the VM
 and runs one layer script (bronze.py, silver.py or gold.py).
 """
 
+import logging
 import secrets
 
 from airflow.sdk import Variable
@@ -22,6 +23,8 @@ VM_SIZE = "Standard_B2pts_v2"
 
 REPO_URL = "https://github.com/Shikhar-55/earthquake_medallion_pipeline.git"
 REPO_SUBDIR = "pipeline"               # folder inside the repo that has bronze.py etc.
+
+logging.getLogger("azure").setLevel(logging.WARNING)   # hide the Azure SDK's HTTP chatter in task logs
 
 
 def get_azure():
