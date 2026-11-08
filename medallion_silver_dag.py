@@ -5,12 +5,17 @@ No schedule. Runs only when the Bronze DAG triggers it.
 Create a VM, run silver.py, delete the VM, then trigger the Gold DAG.
 """
 
+import os
+import sys
 from datetime import datetime, timedelta
 
 from airflow.sdk import DAG, Variable
 from airflow.providers.standard.operators.python import PythonOperator
 from airflow.providers.standard.operators.trigger_dagrun import TriggerDagRunOperator
 
+# The DAGs are synced into a subfolder of the dags folder, so add this file's own
+# folder to the import path before importing the shared helper next to it
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import medallion_utils as vm
 
 default_args = {

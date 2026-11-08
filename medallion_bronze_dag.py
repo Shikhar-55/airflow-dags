@@ -7,12 +7,17 @@ then trigger the Silver DAG.
     create_resource_group >> create_network >> create_vm >> run_bronze >> delete_vm >> trigger_silver
 """
 
+import os
+import sys
 from datetime import datetime, timedelta
 
 from airflow.sdk import DAG, Variable
 from airflow.providers.standard.operators.python import PythonOperator
 from airflow.providers.standard.operators.trigger_dagrun import TriggerDagRunOperator
 
+# The DAGs are synced into a subfolder of the dags folder, so add this file's own
+# folder to the import path before importing the shared helper next to it
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import medallion_utils as vm
 
 default_args = {
