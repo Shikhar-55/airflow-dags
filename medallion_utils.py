@@ -117,6 +117,7 @@ def run_layer(layer):
         "export DEBIAN_FRONTEND=noninteractive",
         "apt-get update -qq",
         "apt-get install -y -qq git python3 python3-pip > /dev/null",
+        "rm -rf /tmp/repo",                                         # a retry reuses the VM, so clear the old clone
         f"git clone --depth 1 {REPO_URL} /tmp/repo",
         "cd /tmp/repo",
         "pip3 install -q --break-system-packages -r requirements.txt",
